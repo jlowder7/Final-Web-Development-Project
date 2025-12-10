@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aurora RPS Battle Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@400;600&display=swap');
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+            background-color: #0b1026;
+            color: white;
+        }
+
+        /* --- Northern Lights Background --- */
+        .aurora-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            overflow: hidden;
+            background: linear-gradient(to bottom, #050a1f, #0b1a3a);
+        }
+
+        .aurora-light {
+            position: absolute;
+            filter: blur(60px);
+            opacity: 0.6;
+            animation: drift infinite alternate ease-in-out;
+            mix-blend-mode: screen;
+        }
+
+        .light-1 {
+            top: -10%;
+            left: -10%;
+            width: 80vw;
+            height: 60vh;
+            background: radial-gradient(circle, rgba(0, 255, 127, 0.4), transparent 70%);
+            animation-duration: 15s;
+        }
+
+        .light-2 {
+            top: 20%;
+            right: -20%;
+            width: 70vw;
+            height: 70vh;
+            background: radial-gradient(circle, rgba(138, 43, 226, 0.3), transparent 70%);
+            animation-duration: 20s;
+            animation-delay: -5s;
+        }
+
+        .light-3 {
+            bottom: -10%;
+            left: 20%;
+            width: 90vw;
+            height: 50vh;
+            background: radial-gradient(circle, rgba(64, 224, 208, 0.3), transparent 70%);
+            animation-duration: 18s;
+            animation-delay: -10s;
+        }
+
+        @keyframes drift {
+            0% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(30px, 20px) scale(1.1); }
+            100% { transform: translate(-20px, 40px) scale(0.95); }
+        }
+
+        /* --- UI Components --- */
+        .glass-panel {
+            background: rgba(16, 24, 50, 0.65);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 1rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        canvas {
+            display: block;
+            touch-action: none;
+        }
+
+        .slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 6px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 3px;
+            outline: none;
+        }
+
+        .slider-thumb::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #4ade80;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        /* Specific colors for sliders */
+        #rockCount::-webkit-slider-thumb { background: #ef4444; }
+        #paperCount::-webkit-slider-thumb { background: #fbbf24; }
+        #scissorsCount::-webkit-slider-thumb { background: #3b82f6; }
+
+        .hidden-modal {
+            display: none;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .visible-modal {
+            display: flex;
+            opacity: 1;
+            pointer-events: auto;
+            animation: fadeIn 0.5s forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        @keyframes pulse-winner {
+            0% { transform: scale(1); text-shadow: 0 0 20px currentColor; }
+            50% { transform: scale(1.2); text-shadow: 0 0 50px currentColor; }
+            100% { transform: scale(1); text-shadow: 0 0 20px currentColor; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Background -->
+    <div class="aurora-container">
+        <div class="aurora-light light-1"></div>
+        <div class="aurora-light light-2"></div>
+        <div class="aurora-light light-3"></div>
+    </div>
+
+    <!-- UI Overlay: Controls -->
+    <div class="absolute top-4 left-4 z-20 w-72 glass-panel p-5 transition-transform duration-300" id="controlsPanel">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-lg font-bold font-orbitron text-gray-100">Battle Config</h2>
+            <button onclick="toggleControls()" class="text-xs text-gray-400 hover:text-white">Hide</button>
+        </div>
+
+        <!-- Counts -->
+        <div class="space-y-4 mb-6">
+            <div>
+                <div class="flex justify-between text-xs mb-1">
+                    <span class="text-red-400 font-bold">🪨 Rock</span>
+                    <span id="val-rock">5</span>
+                </div>
+                <input type="range" id="rockCount" min="3" max="10" value="5" class="slider-thumb" oninput="updateVal('rock', this.value)">
+            </div>
+            <div>
+                <div class="flex justify-between text-xs mb-1">
+                    <span class="text-yellow-400 font-bold">📄 Paper</span>
+                    <span id="val-paper">5</span>
+                </div>
+                <input type="range" id="paperCount" min="3" max="10" value="5" class="slider-thumb" oninput="updateVal('paper', this.value)">
+            </div>
+            <div>
+                <div class="flex justify-between text-xs mb-1">
+                    <span class="text-blue-400 font-bold">✂️ Scissors</span>
+                    <span id="val-scissors">5</span>
+                </div>
+                <input type="range" id="scissorsCount" min="3" max="10" value="5" class="slider-thumb" oninput="updateVal('scissors', this.value)">
+            </div>
+        </div>
+
+        <!-- Settings -->
+        <div class="space-y-4 border-t border-gray-600 pt-4 mb-6">
+            <div>
+                <div class="flex justify-between text-xs mb-1">
+                    <span class="text-gray-300">Speed</span>
+                    <span id="val-speed">1.0x</span>
+                </div>
+                <input type="range" id="speedMult" min="0.5" max="3.0" step="0.1" value="1.0" class="slider-thumb" oninput="updateVal('speed', this.value)">
+            </div>
+            <div>
+                <div class="flex justify-between text-xs mb-1">
+                    <span class="text-gray-300">Size</span>
+                    <span id="val-size">1.0x</span>
+                </div>
+                <input type="range" id="sizeMult" min="0.5" max="2.0" step="0.1" value="1.0" class="slider-thumb" oninput="updateVal('size', this.value)">
+            </div>
+        </div>
+
+        <button onclick="restartGame()" class="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-white font-bold py-2 px-4 rounded shadow-lg transform transition active:scale-95">
+            START BATTLE
+        </button>
+    </div>
+
+    <!-- UI Overlay: Stats -->
+    <div class="absolute top-4 right-4 z-10 glass-panel px-6 py-3 flex gap-6 text-xl font-bold font-orbitron">
+        <div class="text-center">
+            <div class="text-red-400">🪨</div>
+            <div id="count-rock">0</div>
+        </div>
+        <div class="text-center">
+            <div class="text-yellow-400">📄</div>
+            <div id="count-paper">0</div>
+        </div>
+        <div class="text-center">
+            <div class="text-blue-400">✂️</div>
+            <div id="count-scissors">0</div>
+        </div>
+    </div>
+
+    <!-- UI Overlay: Winner Modal -->
+    <div id="winnerModal" class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center hidden-modal backdrop-blur-sm">
+        <div class="text-center p-10">
+            <div id="winnerIcon" class="text-9xl mb-6 animate-[pulse-winner_2s_infinite]">🏆</div>
+            <h1 id="winnerText" class="text-5xl md:text-7xl font-black font-orbitron bg-clip-text text-transparent bg-gradient-to-r from-yellow-300 via-white to-yellow-300 mb-4">
+                VICTORY
+            </h1>
+            <p class="text-gray-300 mb-8 text-xl">The battle has ended.</p>
+            <button onclick="restartGame()" class="bg-white text-black font-bold py-3 px-8 rounded-full hover:bg-gray-200 transition text-lg">
+                Play Again
+            </button>
+        </div>
+    </div>
+
+    <!-- Show Controls Button (Hidden by default) -->
+    <button id="showControlsBtn" onclick="toggleControls()" class="absolute top-4 left-4 z-10 hidden glass-panel p-2 hover:bg-white/10">
+        ⚙️
+    </button>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        // --- Constants & Config ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        const TYPES = {
+            ROCK: { id: 'rock', emoji: '🪨', color: '#ef4444', beats: 'scissors' },
+            PAPER: { id: 'paper', emoji: '📄', color: '#fbbf24', beats: 'rock' },
+            SCISSORS: { id: 'scissors', emoji: '✂️', color: '#3b82f6', beats: 'paper' }
+        };
+
+        const BASE_RADIUS = 25;
+        const BASE_SPEED = 2;
+
+        let particles = [];
+        let animationId;
+        let isGameOver = false;
+
+        let config = {
+            rockCount: 5,
+            paperCount: 5,
+            scissorsCount: 5,
+            speedMult: 1.0,
+            sizeMult: 1.0
+        };
+
+        // --- Particle Class ---
+        class Particle {
+            constructor(x, y, typeKey) {
+                this.x = x;
+                this.y = y;
+                this.type = TYPES[typeKey];
+                
+                // Random velocity vector
+                const angle = Math.random() * Math.PI * 2;
+                const speed = BASE_SPEED * config.speedMult;
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+                
+                this.radius = BASE_RADIUS * config.sizeMult;
+                this.mass = 1; // Used for collision physics
+            }
+
+            draw() {
+                ctx.save();
+                
+                // 1. Stronger Glow
+                ctx.shadowBlur = 25;
+                ctx.shadowColor = this.type.color;
+                
+                // 2. Colorful body (instead of dark)
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.type.color;
+                ctx.globalAlpha = 0.4; // Semi-transparent color fill
+                ctx.fill();
+
+                // 3. Bright border
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1.5;
+                ctx.globalAlpha = 0.6;
+                ctx.stroke();
+
+                ctx.restore();
+
+                // 4. Emoji
+                ctx.font = `${this.radius * 1.5}px "Segoe UI Emoji", "Apple Color Emoji", sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(this.type.emoji, this.x, this.y + (this.radius * 0.1)); 
+            }
+
+            update() {
+                // Move
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Wall Collision (Bounce)
+                if (this.x - this.radius < 0) {
+                    this.x = this.radius;
+                    this.vx *= -1;
+                } else if (this.x + this.radius > canvas.width) {
+                    this.x = canvas.width - this.radius;
+                    this.vx *= -1;
+                }
+
+                if (this.y - this.radius < 0) {
+                    this.y = this.radius;
+                    this.vy *= -1;
+                } else if (this.y + this.radius > canvas.height) {
+                    this.y = canvas.height - this.radius;
+                    this.vy *= -1;
+                }
+            }
+        }
+
+        // --- Core Logic ---
+
+        function init() {
+            // Cancel any running loop
+            if (animationId) cancelAnimationFrame(animationId);
+            
+            resizeCanvas();
+            isGameOver = false;
+            document.getElementById('winnerModal').classList.remove('visible-modal');
+            document.getElementById('winnerModal').classList.add('hidden-modal');
+
+            particles = [];
+            
+            // Spawn particles preventing overlap
+            spawnParticles('ROCK', config.rockCount);
+            spawnParticles('PAPER', config.paperCount);
+            spawnParticles('SCISSORS', config.scissorsCount);
+
+            updateCounters();
+            animate();
+        }
+
+        function spawnParticles(typeKey, count) {
+            for (let i = 0; i < count; i++) {
+                let p;
+                let overlap;
+                let attempts = 0;
+                do {
+                    overlap = false;
+                    const r = BASE_RADIUS * config.sizeMult;
+                    const x = Math.random() * (canvas.width - 2 * r) + r;
+                    const y = Math.random() * (canvas.height - 2 * r) + r;
+                    p = new Particle(x, y, typeKey);
+
+                    // Check overlap with existing
+                    for (let existing of particles) {
+                        const dx = existing.x - p.x;
+                        const dy = existing.y - p.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        if (dist < existing.radius + p.radius + 5) {
+                            overlap = true;
+                            break;
+                        }
+                    }
+                    attempts++;
+                } while (overlap && attempts < 100);
+                particles.push(p);
+            }
+        }
+
+        function checkCollisions() {
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i + 1; j < particles.length; j++) {
+                    const p1 = particles[i];
+                    const p2 = particles[j];
+
+                    const dx = p2.x - p1.x;
+                    const dy = p2.y - p1.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    const minDist = p1.radius + p2.radius;
+
+                    if (distance < minDist) {
+                        // Resolve overlap immediately to prevent sticking
+                        const overlap = minDist - distance;
+                        const nx = dx / distance;
+                        const ny = dy / distance;
+                        
+                        // Move apart proportional to mass (equal here)
+                        const moveX = nx * overlap * 0.5;
+                        const moveY = ny * overlap * 0.5;
+                        
+                        p1.x -= moveX;
+                        p1.y -= moveY;
+                        p2.x += moveX;
+                        p2.y += moveY;
+
+                        // Physics Bounce (Elastic Collision)
+                        // Normal vector
+                        const unx = dx / distance;
+                        const uny = dy / distance;
+                        // Tangent vector
+                        const utx = -uny;
+                        const uty = unx;
+
+                        // Project velocities onto the normal and tangent vectors
+                        const v1n = unx * p1.vx + uny * p1.vy;
+                        const v1t = utx * p1.vx + uty * p1.vy;
+                        const v2n = unx * p2.vx + uny * p2.vy;
+                        const v2t = utx * p2.vx + uty * p2.vy;
+
+                        // Simple 1D elastic collision along the normal (masses equal)
+                        // Swap normal velocities
+                        let v1nTag = v2n;
+                        let v2nTag = v1n;
+
+                        // Convert scalar normal and tangent velocities into vectors
+                        // And apply to particles
+                        p1.vx = v1nTag * unx + v1t * utx;
+                        p1.vy = v1nTag * uny + v1t * uty;
+                        p2.vx = v2nTag * unx + v2t * utx;
+                        p2.vy = v2nTag * uny + v2t * uty;
+
+                        // Battle Logic
+                        resolveBattle(p1, p2);
+                    }
+                }
+            }
+        }
+
+        function resolveBattle(p1, p2) {
+            if (p1.type.id === p2.type.id) return; // Same type, just bounce
+
+            let winner, loser;
+
+            if (p1.type.beats === p2.type.id) {
+                winner = p1;
+                loser = p2;
+            } else if (p2.type.beats === p1.type.id) {
+                winner = p2;
+                loser = p1;
+            } else {
+                return; // Should theoretically be covered above
+            }
+
+            // Transform Loser
+            loser.type = winner.type;
+            
+            // Visual flair for transformation (could add particle effect here later)
+            // For now, update UI immediately
+            updateCounters();
+        }
+
+        function updateCounters() {
+            const counts = { rock: 0, paper: 0, scissors: 0 };
+            particles.forEach(p => counts[p.type.id]++);
+
+            document.getElementById('count-rock').textContent = counts.rock;
+            document.getElementById('count-paper').textContent = counts.paper;
+            document.getElementById('count-scissors').textContent = counts.scissors;
+
+            checkWinCondition(counts);
+        }
+
+        function checkWinCondition(counts) {
+            const activeTypes = [counts.rock > 0, counts.paper > 0, counts.scissors > 0].filter(Boolean).length;
+
+            if (activeTypes === 1 && !isGameOver) {
+                isGameOver = true;
+                let winnerType = counts.rock > 0 ? TYPES.ROCK : (counts.paper > 0 ? TYPES.PAPER : TYPES.SCISSORS);
+                triggerWinScreen(winnerType);
+            }
+        }
+
+        function triggerWinScreen(winnerType) {
+            setTimeout(() => {
+                const modal = document.getElementById('winnerModal');
+                const icon = document.getElementById('winnerIcon');
+                const text = document.getElementById('winnerText');
+
+                icon.textContent = winnerType.emoji;
+                icon.style.color = winnerType.color;
+                text.textContent = `${winnerType.id.toUpperCase()} DOMINATION`;
+                
+                modal.classList.remove('hidden-modal');
+                modal.classList.add('visible-modal');
+                
+                // Keep animation running in background but slow it down or add fireworks? 
+                // Let's just keep them bouncing joyfully.
+            }, 500);
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            particles.forEach(p => {
+                p.update();
+                p.draw();
+            });
+
+            checkCollisions();
+
+            if (!isGameOver || particles.length > 0) {
+                animationId = requestAnimationFrame(animate);
+            }
+        }
+
+        // --- UI & Events ---
+
+        function updateVal(key, value) {
+            if(key === 'speed' || key === 'size') {
+                document.getElementById(`val-${key}`).textContent = value + 'x';
+                config[`${key}Mult`] = parseFloat(value);
+                // We restart instantly if these change for simplicity, 
+                // or we could iterate existing particles to update props.
+                // Let's iterate to keep current battle going if speed/size changes.
+                if (particles.length > 0) {
+                    updateParticleProps(); 
+                    return; // Don't restart
+                }
+            } else {
+                document.getElementById(`val-${key}`).textContent = value;
+                config[`${key}Count`] = parseInt(value);
+            }
+        }
+
+        function updateParticleProps() {
+            particles.forEach(p => {
+                // Update radius
+                p.radius = BASE_RADIUS * config.sizeMult;
+                
+                // Update speed (normalize vector then multiply)
+                const currentSpeed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+                const targetSpeed = BASE_SPEED * config.speedMult;
+                if(currentSpeed > 0) {
+                    p.vx = (p.vx / currentSpeed) * targetSpeed;
+                    p.vy = (p.vy / currentSpeed) * targetSpeed;
+                }
+            });
+        }
+
+        function restartGame() {
+            // Re-read slider values just in case
+            config.rockCount = parseInt(document.getElementById('rockCount').value);
+            config.paperCount = parseInt(document.getElementById('paperCount').value);
+            config.scissorsCount = parseInt(document.getElementById('scissorsCount').value);
+            config.speedMult = parseFloat(document.getElementById('speedMult').value);
+            config.sizeMult = parseFloat(document.getElementById('sizeMult').value);
+
+            init();
+        }
+
+        function toggleControls() {
+            const panel = document.getElementById('controlsPanel');
+            const showBtn = document.getElementById('showControlsBtn');
+            
+            if (panel.classList.contains('-translate-x-full') || panel.style.display === 'none') {
+                // Show
+                panel.style.display = 'block';
+                setTimeout(() => panel.classList.remove('-translate-x-full'), 10);
+                showBtn.classList.add('hidden');
+            } else {
+                // Hide
+                panel.classList.add('-translate-x-full');
+                setTimeout(() => panel.style.display = 'none', 300);
+                showBtn.classList.remove('hidden');
+            }
+        }
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+        // Start initial loop
+        init();
+
+    </script>
+</body>
+</html>

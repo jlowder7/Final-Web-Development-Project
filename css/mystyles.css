@@ -1,0 +1,18 @@
+body{
+    font-family: 'lucida console', 'Courier New', monospace;
+    background-color: rgba(33, 33, 45, 0.181);
+    
+}
+h1, h2, h3, h4, h5, h6, p{
+    font-family: 'lucida console', 'Courier New', monospace;
+}
+a{
+    font-family: 'lucida console', 'Courier New', monospace;
+}
+.LCFont{
+    font-family: 'lucida console', 'Courier New', monospace !important;
+}
+.boldunderline{
+    font-weight: bold;
+    text-decoration: underline;
+}
